@@ -166,7 +166,7 @@ def draw_start_points(img, start_points):
 # -----------------------------
 # BOUNDARY TRACKING
 # -----------------------------
-def trace_separator(img, start_point, fill_value=150, max_skip=5):
+def trace_separator(img, start_point, fill_value=150, max_skip=5,max_depth = 40):
 
     h, w = img.shape
     x, y = start_point
@@ -190,7 +190,7 @@ def trace_separator(img, start_point, fill_value=150, max_skip=5):
         # UPWARD TRACKING
         # ---------------------
         ny = y
-        while ny > 1:
+        while ny > max(y - max_depth, 1):
             if img[ny-1, x] == fill_value:
                 y = ny - 1
                 x = x + 1
@@ -206,7 +206,7 @@ def trace_separator(img, start_point, fill_value=150, max_skip=5):
         # DOWNWARD TRACKING
         # ---------------------
         ny = y
-        while ny < h - 2:
+        while ny < min(y + max_depth, h-2):
             if img[ny+1, x] == fill_value:
                 y = ny + 1
                 x = x + 1
@@ -225,8 +225,7 @@ def trace_separator(img, start_point, fill_value=150, max_skip=5):
         while skip < max_skip and x < w-1:
             x += 1
             skip += 1
-
-        separator.append((x, y))
+            separator.append((x, y))
 
     return separator
 
@@ -235,10 +234,73 @@ def draw_separators(img, separators):
     vis = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     for sep in separators:
-        for x,y in sep:
-            vis[y,x] = (0,0,255)
+        for i in range(len(sep)-1):
+
+            x1,y1 = sep[i]
+            x2,y2 = sep[i+1]
+
+            cv2.line(vis,(x1,y1),(x2,y2),(0,0,255),1)
 
     return vis
+
+def extract_line_segments(gray, separators, save_dir="lines"):
+
+    os.makedirs(save_dir, exist_ok=True)
+
+    h, w = gray.shape
+
+    # convert separator path to y-position per column
+    sep_curves = []
+
+    for sep in separators:
+        curve = np.zeros(w, dtype=np.int32)
+
+        for x, y in sep:
+            if x < w:
+                curve[x] = y
+
+        # fill missing x values
+        for i in range(1, w):
+            if curve[i] == 0:
+                curve[i] = curve[i-1]
+
+        sep_curves.append(curve)
+
+    line_images = []
+
+    for i in range(len(sep_curves) - 1):
+
+        top = sep_curves[i]
+        bottom = sep_curves[i+1]
+
+        line_img = np.ones_like(gray) * 255
+
+        for x in range(w):
+
+            y1 = top[x]
+            y2 = bottom[x]
+
+            if y2 <= y1:
+                continue
+
+            line_img[y1:y2, x] = gray[y1:y2, x]
+
+        # crop bounding box
+        coords = np.column_stack(np.where(line_img < 255))
+
+        if coords.size == 0:
+            continue
+
+        y0, x0 = coords.min(axis=0)
+        y1, x1 = coords.max(axis=0)
+
+        cropped = line_img[y0:y1+1, x0:x1+1]
+
+        line_images.append(cropped)
+
+        cv2.imwrite(f"{save_dir}/line_{i}.png", cropped)
+
+    return line_images
 
 def main(image_path):
 
@@ -258,7 +320,7 @@ def main(image_path):
 
     smoothed = smoothing(filled, cc_h_avg)
 
-    cv2.imshow("After Smooting", bbox_img)
+    cv2.imshow("After Smooting", smoothed)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
@@ -284,6 +346,8 @@ def main(image_path):
 
     #cv2.imshow("Start Points", vis)
     #cv2.waitKey(0)
+
+    lines = extract_line_segments(gray, separators)
 
 
 if __name__ == "__main__":
