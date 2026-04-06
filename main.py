@@ -124,7 +124,7 @@ def smoothing(img, cc_h_avg):
 # -----------------------------
 # START POINT
 # -----------------------------
-def detect_start_points(img, cc_h_median):
+def detect_start_points(img, cc_h_median, cc_h_avg):
     h, w = img.shape
 
     window_height = int(0.25 * cc_h_median)
@@ -148,7 +148,7 @@ def detect_start_points(img, cc_h_median):
             start_points.append((0, yc))
 
             # jump to next region
-            y += window_height + int(cc_h_median)
+            y += window_height + int(cc_h_avg)
 
         else:
             y += 1
@@ -243,13 +243,13 @@ def draw_separators(img, separators):
 
     return vis
 
-def extract_line_segments(gray, separators, save_dir="lines"):
+def extract_line_segments(gray, separators, filename, save_dir="output"):
 
-    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, filename)
+    os.makedirs(save_path, exist_ok=True)
 
     h, w = gray.shape
 
-    # convert separator path to y-position per column
     sep_curves = []
 
     for sep in separators:
@@ -259,12 +259,14 @@ def extract_line_segments(gray, separators, save_dir="lines"):
             if x < w:
                 curve[x] = y
 
-        # fill missing x values
         for i in range(1, w):
             if curve[i] == 0:
                 curve[i] = curve[i-1]
 
         sep_curves.append(curve)
+
+    bottom_separator = np.ones(w, dtype=np.int32) * (h - 1)
+    sep_curves.append(bottom_separator)
 
     line_images = []
 
@@ -285,7 +287,6 @@ def extract_line_segments(gray, separators, save_dir="lines"):
 
             line_img[y1:y2, x] = gray[y1:y2, x]
 
-        # crop bounding box
         coords = np.column_stack(np.where(line_img < 255))
 
         if coords.size == 0:
@@ -298,58 +299,59 @@ def extract_line_segments(gray, separators, save_dir="lines"):
 
         line_images.append(cropped)
 
-        cv2.imwrite(f"{save_dir}/line_{i}.png", cropped)
+        cv2.imwrite(f"{save_path}/{filename}_{i:02d}.tif", cropped)
 
     return line_images
 
-def main(image_path):
+def main(root_dir):
 
-    gray, bin_img = preprocess(image_path)
+    files = sorted(os.listdir(root_dir))
+    for filename in files:
+        image_path = os.path.join(root_dir,filename)
+        gray, bin_img = preprocess(image_path)
 
-    filled = light_projection(bin_img)
+        filled = light_projection(bin_img)
 
-    cv2.imshow("Initial Projection", filled)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        #cv2.imshow("Initial Projection", filled)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
 
-    bbox_img, cc_h_avg, cc_h_median = connected_component_analysis(gray)
+        bbox_img, cc_h_avg, cc_h_median = connected_component_analysis(gray)
 
-    cv2.imshow("Bounding Boxes", bbox_img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        #cv2.imshow("Bounding Boxes", bbox_img)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
 
-    smoothed = smoothing(filled, cc_h_avg)
+        smoothed = smoothing(filled, cc_h_avg)
 
-    cv2.imshow("After Smooting", smoothed)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        #cv2.imshow("After Smooting", smoothed)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
 
-    start_points = detect_start_points(smoothed, cc_h_median)
+        start_points = detect_start_points(smoothed, cc_h_median, cc_h_avg)
 
-    vis = draw_start_points(gray, start_points)
+        vis = draw_start_points(gray, start_points)
 
-    cv2.imshow("Start Points", vis)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        #cv2.imshow("Start Points", vis)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
 
-    separators = []
+        separators = []
 
-    for sp in start_points:
-        sep = trace_separator(smoothed, sp)
-        separators.append(sep)
+        for sp in start_points:
+            sep = trace_separator(smoothed, sp)
+            separators.append(sep)
 
-    vis = draw_separators(gray, separators)
+        vis = draw_separators(gray, separators)
 
-    cv2.imshow("Separators", vis)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        #cv2.imshow("Separators", vis)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
 
-    #cv2.imshow("Start Points", vis)
-    #cv2.waitKey(0)
-
-    lines = extract_line_segments(gray, separators)
+        lines = extract_line_segments(gray, separators, os.path.splitext(os.path.basename(filename))[0])
+        print("File ",filename," DONE!!")
 
 
 if __name__ == "__main__":
-    filename = "sample.tif"
-    main(filename)
+    root_dir = "./Dataset"
+    main(root_dir)
