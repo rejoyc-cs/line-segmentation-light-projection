@@ -1,6 +1,6 @@
 # Generalized Line Segmentation for Multi-Script Handwritten Documents
 
-This repository provides a **rough Python implementation** of the line
+This repository provides a **Python implementation** of the line
 segmentation method proposed in the paper:
 
 **Title:** *A generalized line segmentation method for multi-script
