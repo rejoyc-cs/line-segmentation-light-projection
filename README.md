@@ -14,7 +14,7 @@ Roy\
 
 ## Overview
 
-This repository contains a **rough Python implementation** of the line
+This repository contains a **Python implementation** of the line
 segmentation algorithm proposed in the above paper.\
 The goal of the method is to segment handwritten document images into
 individual text lines in a **script-independent manner**, making it
