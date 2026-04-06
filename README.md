@@ -57,10 +57,28 @@ The implementation follows the major stages described in the paper:
 
 The repository expects the following directory structure:
 
-project_root/ │ ├── main.py ├── Dataset/ │ ├── sample1.tif │ ├──
-sample2.tif │ ├── sample3.tif │ └── ... │ └── lines/ ├── sample1/ │ ├──
-filename_00.tif │ ├── filename_01.tif │ └── ... │ ├── sample2/ │ ├──
-filename_00.tif │ └── ... │ └── ...
+```text
+project_root/
+│
+├── main.py
+├── Dataset/
+│   ├── sample1.tif
+│   ├── sample2.tif
+│   ├── sample3.tif
+│   └── ...
+│
+└── output/
+    ├── sample1/
+    │   ├── filename_00.tif
+    │   ├── filename_01.tif
+    │   └── ...
+    │
+    ├── sample2/
+    │   ├── filename_00.tif
+    │   └── ...
+    │
+    └── ...
+```
 
 ### Description
 
@@ -70,7 +88,7 @@ filename_00.tif │ └── ... │ └── ...
 -   **Dataset/**\
     Directory containing input handwritten document images.
 
--   **lines/**\
+-   **output/**\
     Output directory automatically created by the program. Each document
     will have its own subfolder containing the extracted text line
     images.
