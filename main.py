@@ -125,11 +125,10 @@ def smoothing(img, cc_h_avg):
 # START POINT
 # -----------------------------
 def detect_start_points(img, cc_h_median):
-
     h, w = img.shape
 
     window_height = int(0.25 * cc_h_median)
-    density_threshold = 0.05   # 5%
+    density_threshold = 0.05
 
     start_points = []
 
@@ -138,8 +137,6 @@ def detect_start_points(img, cc_h_median):
     while y + window_height < h:
 
         window = img[y:y+window_height, :]
-
-        # text pixels = 0
         black_pixels = np.sum(window == 0)
 
         total_pixels = window_height * w
@@ -159,11 +156,87 @@ def detect_start_points(img, cc_h_median):
     return start_points
 
 def draw_start_points(img, start_points):
-
     vis = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     for x,y in start_points:
         cv2.circle(vis,(x,y),6,(0,0,255),-1)
+
+    return vis
+
+# -----------------------------
+# BOUNDARY TRACKING
+# -----------------------------
+def trace_separator(img, start_point, fill_value=150, max_skip=5):
+
+    h, w = img.shape
+    x, y = start_point
+
+    separator = []
+    separator.append((x, y))
+
+    while x < w - 1:
+
+        # ---------------------
+        # STRAIGHT MOVE
+        # ---------------------
+        if img[y, x+1] == fill_value:
+            x = x + 1
+            separator.append((x, y))
+            continue
+
+        moved = False
+
+        # ---------------------
+        # UPWARD TRACKING
+        # ---------------------
+        ny = y
+        while ny > 1:
+            if img[ny-1, x] == fill_value:
+                y = ny - 1
+                x = x + 1
+                separator.append((x, y))
+                moved = True
+                break
+            ny -= 1
+
+        if moved:
+            continue
+
+        # ---------------------
+        # DOWNWARD TRACKING
+        # ---------------------
+        ny = y
+        while ny < h - 2:
+            if img[ny+1, x] == fill_value:
+                y = ny + 1
+                x = x + 1
+                separator.append((x, y))
+                moved = True
+                break
+            ny += 1
+
+        if moved:
+            continue
+
+        # ---------------------
+        # CUT THROUGH
+        # ---------------------
+        skip = 0
+        while skip < max_skip and x < w-1:
+            x += 1
+            skip += 1
+
+        separator.append((x, y))
+
+    return separator
+
+def draw_separators(img, separators):
+
+    vis = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+    for sep in separators:
+        for x,y in sep:
+            vis[y,x] = (0,0,255)
 
     return vis
 
@@ -173,16 +246,44 @@ def main(image_path):
 
     filled = light_projection(bin_img)
 
+    cv2.imshow("Initial Projection", filled)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
     bbox_img, cc_h_avg, cc_h_median = connected_component_analysis(gray)
+
+    cv2.imshow("Bounding Boxes", bbox_img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
     smoothed = smoothing(filled, cc_h_avg)
 
-    start_points = detect_start_points(gray, cc_h_median)
+    cv2.imshow("After Smooting", bbox_img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    start_points = detect_start_points(smoothed, cc_h_median)
 
     vis = draw_start_points(gray, start_points)
 
     cv2.imshow("Start Points", vis)
     cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    separators = []
+
+    for sp in start_points:
+        sep = trace_separator(smoothed, sp)
+        separators.append(sep)
+
+    vis = draw_separators(gray, separators)
+
+    cv2.imshow("Separators", vis)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    #cv2.imshow("Start Points", vis)
+    #cv2.waitKey(0)
 
 
 if __name__ == "__main__":
